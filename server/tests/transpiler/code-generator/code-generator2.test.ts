@@ -1544,6 +1544,28 @@ test('Foo[]#push, pop, etc', () => {
   expect(() => compileAndRun(src3, destFile)).toThrow(/runtime type error/)
 })
 
+test('integer[]#push, pop, etc', () => {
+  const src = `const ary: integer[] = [1, 2, 3]
+  print(ary.push(4))`
+  expect(() => compileAndRun(src, destFile)).toThrow(/unknown property name: push/)
+
+  const src2 = `const ary: float[] = [1.0, 2.0, 3.0]
+  print(ary.pop())`
+  expect(() => compileAndRun(src2, destFile)).toThrow(/unknown property name: pop/)
+
+  const src3 = `const ary: boolean[] = [true, false, true]
+  print(ary.shift())`
+  expect(() => compileAndRun(src3, destFile)).toThrow(/unknown property name: shift/)
+
+  const src4 = `const ary = new Vector(3, 0)
+  print(ary.shift())`
+  expect(() => compileAndRun(src4, destFile)).toThrow(/unknown property name: shift/)
+
+  const src5 = `const ary = new Uint8Array(3, 0)
+  print(ary.push(4))`
+  expect(() => compileAndRun(src5, destFile)).toThrow(/unknown property name: push/)
+})
+
 test('multually recursive classes', () => {
   const src = `
   class Foo {
@@ -1777,6 +1799,26 @@ test('import an enum type', () => {
     [0, 'Color', 1, 'Color', 2, 'Color'].join('\n') + '\n')
 })
 
+test('any paramter and integer return type', () => {
+  const src = `
+  function foo(a: integer, b: any): integer {
+    return a + b
+  }
+  print(foo(3, 4))
+
+  let add = (a: integer, b: any): integer => a + b;
+  print(add(3, 4))
+
+  let add1 = (a: integer, b: integer): integer => { return a + b };
+  print(add1(3, 4))
+
+  let add2 = (a: integer, b: integer): integer => a + b;
+  print(add2(3, 4))
+  `
+
+  expect(compileAndRun(src, destFile)).toBe('7\n7\n7\n7\n')
+})
+
 test('consistency between any[] and specific arrays', () => {
   const src = `
   function foo() {
@@ -1792,7 +1834,7 @@ test('consistency between any[] and specific arrays', () => {
   expect(compileAndRun(src, destFile)).toBe('6\n6\n3\n')
 })
 
-test.only('consistency between any[] and specific arrays and method calls', () => {
+test('consistency between any[] and specific arrays and method calls', () => {
   const src = `
   function foo() {
     const a: integer[] = [1, 2, 3]
