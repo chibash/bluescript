@@ -6,7 +6,8 @@ export default function generateLinkerScript(
     shadowMemory: ShadowMemory, 
     definedSymbols: {name: string, address: number}[],
     entryPoint: string,
-    subModuleEntryPoints: string[]
+    subModuleEntryPoints: string[],
+    includeFiles: string[]
 ): string {
     const iramMemory = new MemoryRegion(
       "IRAM", 
@@ -52,6 +53,7 @@ export default function generateLinkerScript(
 
     return new LinkerScript()
         .group(inputFiles)
+        .includes(includeFiles)
         .entry(entryPoint)
         .extern(subModuleEntryPoints)
         .memory([iramMemory, dramMemory, iflashMemory, dflashMemory, externalMemory])
@@ -67,6 +69,8 @@ class LinkerScript {
   entry(entry: string) { this.commands.push(new Entry(entry)); return this; }
   sections(sections: Section[]) { this.commands.push(new Sections(sections)); return this; }
   memory(regions: MemoryRegion[]) { this.commands.push(new Memory(regions)); return this; }
+  include(file: string) { this.commands.push(new Include(file)); return this; }
+  includes(files: string[]) { files.forEach(file => this.include(file)); return this; }
 
   toString() {
     return this.commands.map(c => c.toString()).join('\n');
@@ -82,6 +86,14 @@ class Group implements Command {
 
   toString(): string {
     return `GROUP(${this.files.join(' ')})`;
+  }
+}
+
+class Include implements Command {
+  constructor(private file: string) {}
+
+  toString(): string {
+      return `INCLUDE "${this.file}"`;
   }
 }
 
