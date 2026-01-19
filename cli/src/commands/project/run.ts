@@ -158,6 +158,7 @@ class ESP32RunHandler extends RunHandler {
         return {
             runtimeDir,
             compilerToolchainDir: this.boardConfig.xtensaGccDir,
+            espDir: this.boardConfig.rootDir
         }
     }
 

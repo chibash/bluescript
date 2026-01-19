@@ -185,6 +185,7 @@ class ESP32ReplHandler extends ReplHandler {
         return {
             runtimeDir,
             compilerToolchainDir: this.boardConfig.xtensaGccDir,
+            espDir: this.boardConfig.rootDir
         }
     }
     

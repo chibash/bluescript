@@ -24,6 +24,7 @@ export type PackageConfig = {
 export type CompilerConfig = {
     runtimeDir: string,
     compilerToolchainDir: string,
+    espDir: string
 };
 
 export type MemoryLayout = {
@@ -87,7 +88,7 @@ export class Compiler {
         packageReader: (name: string) => PackageConfig,
     ) {
         this.config = config;
-        this.espidfComponents = new ESPIDFComponents(config.runtimeDir);
+        this.espidfComponents = new ESPIDFComponents(config.runtimeDir, config.espDir);
         this.memory = new ShadowMemory(memoryLayout);
         this.packageReader = packageReader;
         const elfReader = new ElfReader(RUNTIME_ELF_PATH(this.config));
@@ -177,7 +178,8 @@ export class Compiler {
                 this.memory,
                 [...this.definedSymbols.values()],
                 mainEntryPoint,
-                subModuleEntryPoints
+                subModuleEntryPoints,
+                this.espidfComponents.ldFiles
             );
             fs.writeFileSync(LINKER_SCRIPT(mainPackage), linkerscript);
             await executeCommand(`${LD_PATH(this.config)} -o ${LINKED_ELF_PATH(mainPackage)} -T ${LINKER_SCRIPT(mainPackage)} --gc-sections`, cwd);
@@ -202,7 +204,7 @@ export class Compiler {
             const espArchivesFromPkg = this.espidfComponents.getArchiveFilePaths(pkg.espIdfComponents);
             espArchivesFromPkg.forEach(ar => addEspArchive(ar));
         }
-        this.espidfComponents.commonArchiveFilePaths.forEach(ar => addEspArchive(ar));
+        this.espidfComponents.commonArchiveFiles.forEach(ar => addEspArchive(ar));
         return resultArchives;
     }
 
@@ -350,7 +352,8 @@ class TranspilerWithPkgSystem {
 
 class ESPIDFComponents {
     public readonly commonIncludeDirs: string[];
-    public readonly commonArchiveFilePaths: string[];
+    public readonly commonArchiveFiles: string[];
+    public readonly ldFiles: string[];
 
     private readonly COMPONENTS_PATH_PREFIX = /^.*microcontroller/;
     private readonly COMMON_COMPONENTS = ["cxx", "newlib", "freertos", "esp_hw_support", "heap", "log", "soc", "hal", "esp_rom", "esp_common", "esp_system", "xtensa"];
@@ -366,13 +369,14 @@ class ESPIDFComponents {
             include_dirs: string[]
     }};
 
-    constructor(runtimeDir: string) {
+    constructor(runtimeDir: string, espDir: string) {
         this.RUNTIME_DIR = runtimeDir;
         this.SDK_CONFIG_DIR = path.join(runtimeDir, 'ports/esp32/build/config');
         const dependenciesFile = path.join(runtimeDir, 'ports/esp32/build/project_description.json');
         this.dependenciesInfo = JSON.parse(fs.readFileSync(dependenciesFile).toString()).build_component_info;
         this.commonIncludeDirs = this.getIncludeDirs(this.COMMON_COMPONENTS);
-        this.commonArchiveFilePaths = this.getArchiveFilePaths(this.COMMON_COMPONENTS);
+        this.commonArchiveFiles = this.getArchiveFilePaths(this.COMMON_COMPONENTS);
+        this.ldFiles = this.getLdFiles(espDir);
     }
 
     public getIncludeDirs(rootComponentNames: string[]) {
@@ -385,6 +389,20 @@ class ESPIDFComponents {
         }
         includeDirs.push(this.SDK_CONFIG_DIR);
         return includeDirs;
+    }
+
+    private getLdFiles(espDir: string) {
+        // These paths are extracted from logs of `idf.py build` command.
+        // Should be improved.
+        return [
+            path.join(espDir, `esp-idf/components/esp_rom/esp32/ld/esp32.rom.ld`),
+            path.join(espDir, `esp-idf/components/esp_rom/esp32/ld/esp32.rom.api.ld`),
+            path.join(espDir, `esp-idf/components/esp_rom/esp32/ld/esp32.rom.libgcc.ld`),
+            path.join(espDir, `esp-idf/components/esp_rom/esp32/ld/esp32.rom.newlib-data.ld`),
+            path.join(espDir, `esp-idf/components/esp_rom/esp32/ld/esp32.rom.syscalls.ld`),
+            path.join(espDir, `esp-idf/components/esp_rom/esp32/ld/esp32.rom.newlib-funcs.ld`),
+            path.join(espDir, `esp-idf/components/soc/esp32/ld/esp32.peripherals.ld`),
+        ]
     }
 
     public getArchiveFilePaths(rootComponentNames: string[]) {
@@ -409,10 +427,6 @@ class ESPIDFComponents {
                 components.push(this.dependenciesInfo[curr]);
         }
         return components;
-    }
-
-    private convertRuntimeDirPath(absolutePath: string) {
-        return absolutePath.replace(this.COMPONENTS_PATH_PREFIX, this.RUNTIME_DIR);
     }
 }
 
