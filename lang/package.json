@@ -28,7 +28,16 @@
     "dev": "ts-node src/index.ts",
     "exec": "./node_modules/.bin/tsc && node ./dist/index.js",
     "shell": "npx tsc && node ./dist/transpiler/shell.js",
-    "compile": "npx tsc && node ./dist/transpiler/compiler.js",
-    "test": "jest"
+    "transpile-module": "npx tsc && node ./dist/tools/transpile-module.js",
+    "lcompile": "npx tsc && node ./dist/transpiler/compiler.js",
+    "test": "jest",
+
+    "prepack:backup": "shx mv README.md README.md.bak || shx echo 'No existing README to backup'",
+    "prepack:copy": "shx cp ../README.md README.md",
+    "prepack": "npm run prepack:backup && npm run prepack:copy",
+    "postpack:cleanup": "shx rm README.md",
+    "postpack:restore": "shx mv README.md.bak README.md || shx echo 'No backup to restore'",
+    "postpack": "npm run postpack:cleanup && npm run postpack:restore",
+    "prepublishOnly": "npm run build"
   }
 }
